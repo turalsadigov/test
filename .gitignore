@@ -1,0 +1,5 @@
+venv/
+access.sh
+old_requirements.txt
+magicport_database_access.pem
+.env
