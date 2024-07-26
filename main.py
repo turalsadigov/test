@@ -1,8 +1,7 @@
 import pandas as pd
-import polars as pl
 import sshtunnel
-import pymysql
 import time
+import pymysql
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -48,7 +47,7 @@ def get_magicport_response(
         with sshtunnel.open_tunnel(
             ("ec2-54-191-232-27.us-west-2.compute.amazonaws.com", 22),
             ssh_username="ec2-user",
-            ssh_pkey="magicport_database_access.pem",
+            ssh_pkey="test.pem",
             remote_bind_address=(
                 database_ip,
                 3306,
