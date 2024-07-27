@@ -181,6 +181,7 @@ def get_merged_list_sister_mmsis(mmsi):
         "columns": [
             "s_staticData_mmsi",
             "s_staticData_imo",
+            "s_staticData_name",
             "s_lastPositionUpdate_timestamp",
             "s_staticData_dimensions_length",
             "s_staticData_dimensions_width",
@@ -430,7 +431,6 @@ if submit:
     # #     query=query,
     # #     prod=True,
     # # )
-
     vessels_management_df = get_magicport_response(
         database_location="liquidweb",
         database_name="magicportai_crawl",

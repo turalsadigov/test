@@ -6,6 +6,21 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
+import os
+import tempfile
+import paramiko
+
+# Retrieve the private key from environment variable
+private_key_content = os.environ.get("MAGICPORT_DATABASE_ACCESS_KEY")
+if private_key_content is None:
+    raise ValueError("Environment variable PRIVATE_KEY is not set")
+
+# Write the private key content to a temporary file
+with tempfile.NamedTemporaryFile(delete=False) as temp_pem:
+    temp_pem.write(private_key_content.encode())
+    temp_pem_path = temp_pem.name
+
+
 # DB related
 def get_human_readable_time(seconds):
     if seconds < 1:
@@ -47,7 +62,7 @@ def get_magicport_response(
         with sshtunnel.open_tunnel(
             ("ec2-54-191-232-27.us-west-2.compute.amazonaws.com", 22),
             ssh_username="ec2-user",
-            ssh_pkey="test.pem",
+            ssh_pkey=temp_pem_path,
             remote_bind_address=(
                 database_ip,
                 3306,
