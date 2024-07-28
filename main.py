@@ -20,15 +20,18 @@ current_dir = os.getcwd()
 print(f"Current working directory: {current_dir}")
 
 # Write the private key content to a temporary file
-with tempfile.NamedTemporaryFile(dir='.', delete=False) as temp_pem:
-    temp_pem.write(private_key_content.encode())
-    temp_pem_path = temp_pem.name
+# with tempfile.NamedTemporaryFile(dir='.', delete=False) as temp_pem:
+#     temp_pem.write(private_key_content.encode())
+#     temp_pem_path = temp_pem.name
 
 try:
     with tempfile.NamedTemporaryFile(dir=current_dir, delete=False) as temp_pem:
         temp_pem.write(private_key_content.encode())
         temp_pem_path = temp_pem.name
     print(f"Temporary file created at: {temp_pem_path}")
+    # print the content of the temporary file
+    with open(temp_pem_path, "r") as f:
+        print("reading temp file: ",f.read())
 except Exception as e:
     print(f"Error creating temporary file: {e}")
 

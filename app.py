@@ -26,7 +26,7 @@ if private_key_content is None:
     raise ValueError("Environment variable PRIVATE_KEY is not set")
 
 print("AWS_MAGICPORT_SERVER_URL: ", AWS_MAGICPORT_SERVER_URL)
-print("MAGICPORT_DATABASE_ACCESS_KEY: ", private_key_content)
+print("MAGICPORT_DATABASE_ACCESS_KEY from env variable: ", private_key_content)
 # Get current working directory
 current_dir = os.getcwd()
 print(f"Current working directory: {current_dir}")
