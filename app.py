@@ -23,7 +23,7 @@ vessels_journey_url = "http://" + AWS_MAGICPORT_SERVER_URL + "/Vessels/Journey"
 current_directory = os.getcwd()
 
 # Set the page title
-st.title("Enter MMSI")
+st.title("Vessel clustering")
 
 # Create a numeric input field
 imo_mmsi_name = st.selectbox("Select the type of the input:", ["IMO", "MMSI", "Name"])
