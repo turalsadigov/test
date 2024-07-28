@@ -78,7 +78,7 @@ def get_magicport_response(
         }
         print("Connecting to LiquidWeb database.")
         print("tempfile again: ", temp_pem_path)
-        temp_pem_path = os.path.basename(temp_pem_path)
+        temp_pem_path = temp_pem_path[14:]
         print("tempfile base only: ", temp_pem_path)
         with sshtunnel.open_tunnel(
             ("ec2-54-191-232-27.us-west-2.compute.amazonaws.com", 22),
