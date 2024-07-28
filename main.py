@@ -33,6 +33,7 @@ try:
     print(f"Temporary file created at: {temp_pem_path}")
     print("tempfile again: ", temp_pem_path)
     temp_pem_path = temp_pem_path[15:]
+    temp_pem_path = "./" + temp_pem_path
     print("tempfile base only: ", temp_pem_path)
     # print the content of the temporary file
     # with open(temp_pem_path, "r") as f:
