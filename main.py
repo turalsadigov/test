@@ -20,7 +20,7 @@ private_key_content = "-----BEGIN PRIVATE KEY-----\n" + private_key_content + "\
 # Get current working directory
 current_dir = os.getcwd()
 print(f"Current working directory: {current_dir}")
-print("Private key content: ", private_key_content)
+#print("Private key content: ", private_key_content)
 # Write the private key content to a temporary file
 # with tempfile.NamedTemporaryFile(dir='.', delete=False) as temp_pem:
 #     temp_pem.write(private_key_content.encode())
@@ -32,8 +32,8 @@ try:
         temp_pem_path = temp_pem.name
     print(f"Temporary file created at: {temp_pem_path}")
     # print the content of the temporary file
-    with open(temp_pem_path, "r") as f:
-        print("reading temp file: ",f.read())
+    # with open(temp_pem_path, "r") as f:
+    #     print("reading temp file: ",f.read())
 except Exception as e:
     print(f"Error creating temporary file: {e}")
 
@@ -76,6 +76,8 @@ def get_magicport_response(
             "port": 4000,
             "database": database_name,
         }
+        print("Connecting to LiquidWeb database.")
+        print("tempfile again: ", temp_pem_path)
         with sshtunnel.open_tunnel(
             ("ec2-54-191-232-27.us-west-2.compute.amazonaws.com", 22),
             ssh_username="ec2-user",
