@@ -9,3 +9,5 @@ __pycache__/*
 __pycache__/main.cpython-39.pyc
 .DS_Store
 tmp*
+data/*
+data

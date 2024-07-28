@@ -20,18 +20,7 @@ AWS_MAGICPORT_SERVER_URL = os.environ.get("AWS_MAGICPORT_SERVER_URL")
 
 vessels_merged_list_url = "http://" + AWS_MAGICPORT_SERVER_URL + "/Vessels/MergedList"
 vessels_journey_url = "http://" + AWS_MAGICPORT_SERVER_URL + "/Vessels/Journey"
-
-# private_key_content = os.environ.get("MAGICPORT_DATABASE_ACCESS_KEY")
-# private_key_content = private_key_content.replace(" ", "\n")
-# private_key_content = "-----BEGIN PRIVATE KEY-----\n" + private_key_content + "\n-----END PRIVATE KEY-----"
-# if private_key_content is None:
-#     raise ValueError("Environment variable PRIVATE_KEY is not set")
-
-# print("AWS_MAGICPORT_SERVER_URL: ", AWS_MAGICPORT_SERVER_URL)
-# print("MAGICPORT_DATABASE_ACCESS_KEY from env variable: ", private_key_content)
-# # Get current working directory
-# current_dir = os.getcwd()
-# print(f"Current working directory: {current_dir}")
+current_directory = os.getcwd()
 
 # Set the page title
 st.title("Enter MMSI")
@@ -526,18 +515,27 @@ if submit:
     # #     query=query,
     # #     prod=True,
     # # )
-    vessels_management_df = get_magicport_response(
-        database_location="liquidweb",
-        database_name="magicportai_crawl",
-        query=f"""
-                select evm.*
-                from magicportai_crawl.equasis_vessels ev 
-                left join magicportai_crawl.equasis_vessel_managements evm on ev.id = evm.equasis_vessel_id 
-                where ev.imo = {corresponding_imo_code}
-            """,
-        prod=True,
-    )
-    # cerate a dataframe from the response
+    if current_directory.startswith("/Users"):
+        vessels_management_df = get_magicport_response(
+            database_location="liquidweb",
+            database_name="magicportai_crawl",
+            query=f"""
+                    select evm.*
+                    from magicportai_crawl.equasis_vessels ev 
+                    left join magicportai_crawl.equasis_vessel_managements evm on ev.id = evm.equasis_vessel_id 
+                    where ev.imo = {corresponding_imo_code}
+                """,
+            prod=True,
+        )
+    elif current_directory.startswith("/Cloud"):
+        vessels_management_df = pd.DataFrame({"Message:": ["Not brining data due to security reasons"]})
+    else:
+        filters = [('imo', '==', corresponding_imo_code)]
+        vessels_management_df = (
+            pd.read_parquet("data/vessels_managemnet", filters = filters, engine='fastparquet')
+            .query("imo == @corresponding_imo_code")
+        )
+            # cerate a dataframe from the response
 
     # journey_df_imo = get_journey_data(
     #     [corresponding_imo_code], "2024-01-22 10:00:00", "2024-07-22 10:00:00"
@@ -560,17 +558,32 @@ if submit:
     merged_list_df_mmsi_in_same_cluster = get_merged_list_data(
         sister_mmsi_list_in_same_cluster, imo=False
     )
+    
+    if current_directory.startswith("/Users"):
+        vessel_certificate_df = get_magicport_response(
+            database_location="liquidweb",
+            database_name="magicportai_mou",
+            query="""
+                    select mic.*, mi.*
+                    from mou_inspection_certificates mic 
+                    left join mou_inspections mi on mic.mou_inspection_id = mi.id"""
+            + f" where {cetificates_where_clause}",
+            prod=True,
+        )
+    elif current_directory.startswith("/Cloud"):
+        vessel_certificate_df = pd.DataFrame({"Message:": ["Not brining data due to security reasons"]})
 
-    vessel_certificate_df = get_magicport_response(
-        database_location="liquidweb",
-        database_name="magicportai_mou",
-        query="""
-                select mic.*, mi.*
-                from mou_inspection_certificates mic 
-                left join mou_inspections mi on mic.mou_inspection_id = mi.id"""
-        + f" where {cetificates_where_clause}",
-        prod=True,
-    )
+    else:
+        if len(sister_mmsi_list_in_same_cluster) == 1:
+            filters = [('mmsi', '==', sister_mmsi_list_in_same_cluster[0])]
+            query = "mmsi == @sister_mmsi_list_in_same_cluster[0]"
+        else:
+            filters = [('mmsi', 'in', {tuple(sister_mmsi_list_in_same_cluster)})]
+            query = "mmsi in @sister_mmsi_list_in_same_cluster"
+        vessel_certificate_df = (
+            pd.read_parquet("data/vessel_certificate", filters = filters, engine='fastparquet')
+            .query(query)
+        )
 
     # core_vessels_df = get_magicport_response(
     #     database_location="liquidweb",
