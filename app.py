@@ -527,14 +527,14 @@ if submit:
                 """,
             prod=True,
         )
-    elif current_directory.startswith("/Cloud"):
-        vessels_management_df = pd.DataFrame({"Message:": ["Not brining data due to security reasons"]})
     else:
-        filters = [('imo', '==', corresponding_imo_code)]
-        vessels_management_df = (
-            pd.read_parquet("data/vessels_managemnet", filters = filters, engine='fastparquet')
-            .query("imo == @corresponding_imo_code")
-        )
+        vessels_management_df = pd.DataFrame({"Message:": ["Not brining data due to security reasons"]})
+    # else:
+    #     filters = [('imo', '==', corresponding_imo_code)]
+    #     vessels_management_df = (
+    #         pd.read_parquet("data/vessels_managemnet", filters = filters, engine='fastparquet')
+    #         .query("imo == @corresponding_imo_code")
+    #     )
             # cerate a dataframe from the response
 
     # journey_df_imo = get_journey_data(
@@ -570,20 +570,20 @@ if submit:
             + f" where {cetificates_where_clause}",
             prod=True,
         )
-    elif current_directory.startswith("/Cloud"):
+    else:
         vessel_certificate_df = pd.DataFrame({"Message:": ["Not brining data due to security reasons"]})
 
-    else:
-        if len(sister_mmsi_list_in_same_cluster) == 1:
-            filters = [('mmsi', '==', sister_mmsi_list_in_same_cluster[0])]
-            query = "mmsi == @sister_mmsi_list_in_same_cluster[0]"
-        else:
-            filters = [('mmsi', 'in', {tuple(sister_mmsi_list_in_same_cluster)})]
-            query = "mmsi in @sister_mmsi_list_in_same_cluster"
-        vessel_certificate_df = (
-            pd.read_parquet("data/vessel_certificate", filters = filters, engine='fastparquet')
-            .query(query)
-        )
+    # else:
+    #     if len(sister_mmsi_list_in_same_cluster) == 1:
+    #         filters = [('mmsi', '==', sister_mmsi_list_in_same_cluster[0])]
+    #         query = "mmsi == @sister_mmsi_list_in_same_cluster[0]"
+    #     else:
+    #         filters = [('mmsi', 'in', {tuple(sister_mmsi_list_in_same_cluster)})]
+    #         query = "mmsi in @sister_mmsi_list_in_same_cluster"
+    #     vessel_certificate_df = (
+    #         pd.read_parquet("data/vessel_certificate", filters = filters, engine='fastparquet')
+    #         .query(query)
+    #     )
 
     # core_vessels_df = get_magicport_response(
     #     database_location="liquidweb",
