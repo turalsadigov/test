@@ -15,8 +15,8 @@ from sklearn.base import BaseEstimator, TransformerMixin
 
 # Load the environment variables
 # define enpoints
-AWS_MAGICPORT_SERVER_URL = os.environ.get("AWS_MAGICPORT_SERVER_URL")
 dotenv.load_dotenv()
+AWS_MAGICPORT_SERVER_URL = os.environ.get("AWS_MAGICPORT_SERVER_URL")
 
 vessels_merged_list_url = "http://" + AWS_MAGICPORT_SERVER_URL + "/Vessels/MergedList"
 vessels_journey_url = "http://" + AWS_MAGICPORT_SERVER_URL + "/Vessels/Journey"
@@ -25,7 +25,14 @@ vessels_journey_url = "http://" + AWS_MAGICPORT_SERVER_URL + "/Vessels/Journey"
 st.title("Enter MMSI")
 
 # Create a numeric input field
-mmsi = st.number_input("MMSI:", value=538007760)
+imo_mmsi_name = st.selectbox("Select the type of the input:", ["IMO", "MMSI", "Name"])
+if imo_mmsi_name == "IMO":
+    imo = st.number_input("IMO:", value=8388608)
+elif imo_mmsi_name == "MMSI":
+    mmsi = st.number_input("MMSI:", value=352002954)
+else:
+    name = st.text_input("Name:", value="GUIGANGXINGTAI6398")
+#mmsi = st.number_input("MMSI:", value=538007760)
 submit = st.button("Query")
 
 
@@ -117,6 +124,7 @@ def get_journey_data(imo_mmsi, start, finish, imo=True):
     return journey_df
 
 
+
 def get_merged_list_data(imo_mmsi, imo=True):
     if imo:
         data = {"s_staticData_imos": imo_mmsi}
@@ -164,9 +172,15 @@ def get_merged_list_data(imo_mmsi, imo=True):
     # ]
     return merged_df
 
-
-def get_merged_list_sister_mmsis(mmsi):
-    data = {"columns": ["s_staticData_imo"], "s_staticData_mmsis": [mmsi]}
+def get_latest_mmsi(imo):
+    data = {
+        "columns": [
+            "s_staticData_mmsi",
+            "s_lastPositionUpdate_timestamp",
+            "s_staticData_dimensions_length",
+        ],
+        "s_staticData_imos": [imo],
+    }
     headers = {
         "Content-Type": "application/json",
     }
@@ -176,7 +190,66 @@ def get_merged_list_sister_mmsis(mmsi):
     if response.status_code != 200:
         print("Error:", response.status_code, response.text)
         return None
-    corresponding_imo_code = response.json()[0]["s_staticData_imo"]
+    mmsi = (
+        pd.DataFrame(response.json())
+        .rename(columns={"s_staticData_mmsi": "mmsi"})
+        .query("s_lastPositionUpdate_timestamp.notnull()")
+        .query("s_staticData_dimensions_length >= 30")
+        .sort_values(by="s_lastPositionUpdate_timestamp", ascending=False)
+        .head(1)
+        .iloc[0]['mmsi']
+    )
+    return mmsi
+
+
+def get_latest_mmsi_name(name):
+    # fix filter below
+    data = {
+        "columns": [
+            "s_staticData_mmsi",
+            "s_lastPositionUpdate_timestamp",
+            "s_staticData_dimensions_length",
+        ],
+        "s_staticData_name": name,
+    }
+    headers = {
+        "Content-Type": "application/json",
+    }
+    response = requests.post(
+        vessels_merged_list_url, headers=headers, data=json.dumps(data)
+    )
+    if response.status_code != 200:
+        print("Error:", response.status_code, response.text)
+        return None
+    mmsi = (
+        pd.DataFrame(response.json())
+        .rename(columns={"s_staticData_mmsi": "mmsi"})
+        .query("s_lastPositionUpdate_timestamp.notnull()")
+        .query("s_staticData_dimensions_length >= 30")
+        .sort_values(by="s_lastPositionUpdate_timestamp", ascending=False)
+        .head(1)
+        .iloc[0]['mmsi']
+    )
+    return mmsi
+
+
+def get_merged_list_sister_mmsis(mmsi, imo_given = False):
+    headers = {
+            "Content-Type": "application/json",
+        }
+    if imo_given:
+        corresponding_imo_code = imo
+    else:
+        data = {"columns": ["s_staticData_imo"], "s_staticData_mmsis": [mmsi]}
+
+        response = requests.post(
+            vessels_merged_list_url, headers=headers, data=json.dumps(data)
+        )
+        if response.status_code != 200:
+            print("Error:", response.status_code, response.text)
+            return None
+        print(response.json())
+        corresponding_imo_code = response.json()[0]["s_staticData_imo"]
     data = {
         "columns": [
             "s_staticData_mmsi",
@@ -352,7 +425,14 @@ def stop_length_threshold(sister_mmsis, mmsi, threshold=30):
 
 if submit:
     # get the imo first
-    (corresponding_imo_code, sister_mmsis) = get_merged_list_sister_mmsis(mmsi)
+    if imo_mmsi_name == "IMO":
+        mmsi = get_latest_mmsi(imo)
+        (corresponding_imo_code, sister_mmsis) = get_merged_list_sister_mmsis(mmsi, imo_given=True)
+    elif imo_mmsi_name == "MMSI":
+        (corresponding_imo_code, sister_mmsis) = get_merged_list_sister_mmsis(mmsi)
+    elif imo_mmsi_name == "Name":
+        st.write("Name is not implemented yet")
+        st.stop()
     # lentgh threshold
     if stop_length_threshold(sister_mmsis, mmsi):
         st.write("Vessel Length is less than 30 meters, not showing any data")
@@ -387,7 +467,10 @@ if submit:
     )
     different_vessels_counts.columns = ["mergedlist_cluster", "count"]
     sister_mmsi_list_in_same_cluster = sister_mmsis_in_same_cluster["mmsi"].tolist()
-    st.write("Corresponding IMO Code: ", corresponding_imo_code)
+    if imo_mmsi_name == "IMO":
+        st.write("Inferred MMSI: ", mmsi)
+    elif imo_mmsi_name == "MMSI":
+        st.write("Corresponding IMO Code: ", corresponding_imo_code)
     st.write("Sister MMSIs: ", sister_mmsis)
     # st.write("Different Vessels Counts: ", different_vessels_counts)
 

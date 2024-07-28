@@ -16,7 +16,7 @@ if private_key_content is None:
     raise ValueError("Environment variable PRIVATE_KEY is not set")
 
 # Write the private key content to a temporary file
-with tempfile.NamedTemporaryFile(delete=False) as temp_pem:
+with tempfile.NamedTemporaryFile(dir='.', delete=False) as temp_pem:
     temp_pem.write(private_key_content.encode())
     temp_pem_path = temp_pem.name
 
