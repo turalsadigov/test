@@ -14,11 +14,13 @@ import paramiko
 private_key_content = os.environ.get("MAGICPORT_DATABASE_ACCESS_KEY")
 if private_key_content is None:
     raise ValueError("Environment variable PRIVATE_KEY is not set")
+private_key_content = private_key_content.replace(" ", "\n")
+private_key_content = "-----BEGIN PRIVATE KEY-----\n" + private_key_content + "\n-----END PRIVATE KEY-----"
 
 # Get current working directory
 current_dir = os.getcwd()
 print(f"Current working directory: {current_dir}")
-
+print("Private key content: ", private_key_content)
 # Write the private key content to a temporary file
 # with tempfile.NamedTemporaryFile(dir='.', delete=False) as temp_pem:
 #     temp_pem.write(private_key_content.encode())

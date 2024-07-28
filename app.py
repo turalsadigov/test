@@ -21,16 +21,17 @@ AWS_MAGICPORT_SERVER_URL = os.environ.get("AWS_MAGICPORT_SERVER_URL")
 vessels_merged_list_url = "http://" + AWS_MAGICPORT_SERVER_URL + "/Vessels/MergedList"
 vessels_journey_url = "http://" + AWS_MAGICPORT_SERVER_URL + "/Vessels/Journey"
 
-private_key_content = os.environ.get("MAGICPORT_DATABASE_ACCESS_KEY")
-private_key_content = private_key_content.replace(" ", "\n")
-if private_key_content is None:
-    raise ValueError("Environment variable PRIVATE_KEY is not set")
+# private_key_content = os.environ.get("MAGICPORT_DATABASE_ACCESS_KEY")
+# private_key_content = private_key_content.replace(" ", "\n")
+# private_key_content = "-----BEGIN PRIVATE KEY-----\n" + private_key_content + "\n-----END PRIVATE KEY-----"
+# if private_key_content is None:
+#     raise ValueError("Environment variable PRIVATE_KEY is not set")
 
-print("AWS_MAGICPORT_SERVER_URL: ", AWS_MAGICPORT_SERVER_URL)
-print("MAGICPORT_DATABASE_ACCESS_KEY from env variable: ", private_key_content)
-# Get current working directory
-current_dir = os.getcwd()
-print(f"Current working directory: {current_dir}")
+# print("AWS_MAGICPORT_SERVER_URL: ", AWS_MAGICPORT_SERVER_URL)
+# print("MAGICPORT_DATABASE_ACCESS_KEY from env variable: ", private_key_content)
+# # Get current working directory
+# current_dir = os.getcwd()
+# print(f"Current working directory: {current_dir}")
 
 # Set the page title
 st.title("Enter MMSI")
