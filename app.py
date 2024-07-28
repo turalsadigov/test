@@ -22,6 +22,7 @@ vessels_merged_list_url = "http://" + AWS_MAGICPORT_SERVER_URL + "/Vessels/Merge
 vessels_journey_url = "http://" + AWS_MAGICPORT_SERVER_URL + "/Vessels/Journey"
 
 private_key_content = os.environ.get("MAGICPORT_DATABASE_ACCESS_KEY")
+private_key_content = private_key_content.replace(" ", "\n")
 if private_key_content is None:
     raise ValueError("Environment variable PRIVATE_KEY is not set")
 
