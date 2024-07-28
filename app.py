@@ -25,24 +25,11 @@ private_key_content = os.environ.get("MAGICPORT_DATABASE_ACCESS_KEY")
 if private_key_content is None:
     raise ValueError("Environment variable PRIVATE_KEY is not set")
 
+print("AWS_MAGICPORT_SERVER_URL: ", AWS_MAGICPORT_SERVER_URL)
+print("MAGICPORT_DATABASE_ACCESS_KEY: ", private_key_content)
 # Get current working directory
 current_dir = os.getcwd()
 print(f"Current working directory: {current_dir}")
-
-# Write the private key content to a temporary file
-with tempfile.NamedTemporaryFile(dir='.', delete=False) as temp_pem:
-    temp_pem.write(private_key_content.encode())
-    temp_pem_path = temp_pem.name
-
-try:
-    with tempfile.NamedTemporaryFile(dir=current_dir, delete=False) as temp_pem:
-        temp_pem.write(private_key_content.encode())
-        temp_pem_path = temp_pem.name
-    print(f"Temporary file created at: {temp_pem_path}")
-except Exception as e:
-    print(f"Error creating temporary file: {e}")
-
-
 
 # Set the page title
 st.title("Enter MMSI")

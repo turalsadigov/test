@@ -106,7 +106,7 @@ def get_magicport_response(
                     df = pd.DataFrame(data_list)
             except pymysql.MySQLError as err:
                 print(f"MySQL Error: {err}")
-                df = pl.DataFrame({"MySQL Error:": [err]})
+                df = pd.DataFrame({"MySQL Error:": [err]})
     elif database_location == "aws":
         print("AWS connection not implemented yet.")
         #print("Returning a placeholder Polars DataFrame.")
