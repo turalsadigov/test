@@ -2,9 +2,11 @@ import streamlit as st
 import pandas as pd
 from main import *
 import requests
+from requests.auth import HTTPBasicAuth
 import os
 import json
 import dotenv
+import pprint
 
 from sklearn.preprocessing import StandardScaler, OneHotEncoder
 from sklearn.compose import ColumnTransformer
@@ -12,6 +14,10 @@ from sklearn.pipeline import Pipeline
 from sklearn.cluster import KMeans
 from sklearn.impute import SimpleImputer
 from sklearn.base import BaseEstimator, TransformerMixin
+import numpy as np
+
+
+
 
 # Load the environment variables
 # define enpoints
@@ -35,6 +41,33 @@ else:
     name = st.text_input("Name:", value="GUIGANGXINGTAI6398")
 #mmsi = st.number_input("MMSI:", value=538007760)
 submit = st.button("Query")
+
+
+def angle_between_vectors(u, v):
+    # Convert lists to numpy arrays
+    u = np.array(u)
+    v = np.array(v)
+    
+    # Compute the dot product
+    dot_product = np.dot(u, v)
+    
+    # Compute the magnitudes of the vectors
+    norm_u = np.linalg.norm(u)
+    norm_v = np.linalg.norm(v)
+    
+    # Compute the cosine of the angle
+    cos_theta = dot_product / (norm_u * norm_v)
+    
+    # Clamp the cosine value to the range [-1, 1] to avoid numerical issues
+    cos_theta = np.clip(cos_theta, -1.0, 1.0)
+    
+    # Compute the angle in radians
+    angle_rad = np.arccos(cos_theta)
+    
+    # Convert the angle to degrees
+    angle_deg = np.degrees(angle_rad)
+    
+    return angle_deg
 
 
 
@@ -124,8 +157,6 @@ def get_journey_data(imo_mmsi, start, finish, imo=True):
 
     return journey_df
 
-
-
 def get_merged_list_data(imo_mmsi, imo=True):
     if imo:
         data = {"s_staticData_imos": imo_mmsi}
@@ -195,43 +226,44 @@ def get_latest_mmsi(imo):
         pd.DataFrame(response.json())
         .rename(columns={"s_staticData_mmsi": "mmsi"})
         .query("s_lastPositionUpdate_timestamp.notnull()")
-        .query("s_staticData_dimensions_length >= 30")
+        .query("s_staticData_dimensions_length >= 70")
         .sort_values(by="s_lastPositionUpdate_timestamp", ascending=False)
         .head(1)
         .iloc[0]['mmsi']
     )
     return mmsi
 
-
-def get_latest_mmsi_name(name):
+def get_names_mmsis(name):
     # fix filter below
     data = {
-        "columns": [
-            "s_staticData_mmsi",
-            "s_lastPositionUpdate_timestamp",
-            "s_staticData_dimensions_length",
-        ],
-        "s_staticData_name": name,
+        "query": {
+            "query_string": {
+                "default_field": "name",
+                "query": f"{name}*",
+                "default_operator": "AND",
+                "allow_leading_wildcard": True
+            }
+        }
     }
     headers = {
         "Content-Type": "application/json",
     }
     response = requests.post(
-        vessels_merged_list_url, headers=headers, data=json.dumps(data)
+        url="http://67.227.130.50:9200/vessels/_search", 
+        auth=HTTPBasicAuth("elastic", "xWWzBE3MPxktg8knkep7"), 
+        headers=headers,
+        data=json.dumps(data)
     )
     if response.status_code != 200:
         print("Error:", response.status_code, response.text)
         return None
-    mmsi = (
-        pd.DataFrame(response.json())
-        .rename(columns={"s_staticData_mmsi": "mmsi"})
-        .query("s_lastPositionUpdate_timestamp.notnull()")
-        .query("s_staticData_dimensions_length >= 30")
-        .sort_values(by="s_lastPositionUpdate_timestamp", ascending=False)
-        .head(1)
-        .iloc[0]['mmsi']
-    )
-    return mmsi
+    response_json = response.json()
+    response_json_hits = response_json["hits"]["hits"]
+    pprint.pprint(response_json_hits)
+    df = pd.DataFrame(response_json_hits)
+    df_source = pd.json_normalize(df['_source'])
+    expanded_df = df.drop('_source', axis=1).join(df_source).sort_values(by="s_lastPositionUpdate_timestamp", ascending=False)
+    return  expanded_df
 
 
 def get_merged_list_sister_mmsis(mmsi, imo_given = False):
@@ -283,6 +315,20 @@ def get_same_vessels(sister_mmsis):
     if sister_mmsis.empty:
         return sister_mmsis
 
+    if sister_mmsis.shape[0] == 2:
+        small_sister_mmsis = sister_mmsis[['s_staticData_dimensions_length', 's_staticData_dimensions_width']]
+        if not small_sister_mmsis.isnull().values.any():
+            u = small_sister_mmsis.loc[0, ['s_staticData_dimensions_length', 's_staticData_dimensions_width']].to_numpy()
+            v = small_sister_mmsis.loc[1, ['s_staticData_dimensions_length', 's_staticData_dimensions_width']].to_numpy()
+            angle = angle_between_vectors(u, v)
+            if angle < 1:
+                sister_mmsis["mergedlist_cluster"] = 0
+            sister_mmsis = sister_mmsis.sort_values(
+                by=["s_lastPositionUpdate_timestamp"],
+                ascending=[False],
+            )
+            return sister_mmsis
+
     numeric_features = [
         "s_staticData_dimensions_length",
         "s_staticData_dimensions_width",
@@ -308,24 +354,26 @@ def get_same_vessels(sister_mmsis):
             ("cat", categorical_transformer, categorical_features),
         ]
     )
+    st.write(sister_mmsis.shape[0])
 
-    # if number of samples is less than 10, we will use the number of samples as the number of clusters
-    if sister_mmsis.shape[0] < 10 and sister_mmsis.shape[0] > 2:
-        n_clusters = 3
-    elif sister_mmsis.shape[0] < 3 and sister_mmsis.shape[0] > 1:
-        n_clusters = 2
-    elif sister_mmsis.shape[0] == 1:
-        n_clusters = 1
-    else:
+    num_rows = sister_mmsis.shape[0]
+
+    if num_rows >= 10:
         n_clusters = 10
+    elif 5 <= num_rows < 10:
+        n_clusters = 3
+    elif 2 <= num_rows < 5:
+        n_clusters = 2
+    elif num_rows < 2:
+        n_clusters = 1 
+
     # Create a clustering pipeline
     pipeline = Pipeline(
         steps=[
             ("preprocessor", preprocessor),
-            ("cluster", KMeans(n_clusters=n_clusters, random_state=2024)),
+            ("cluster", KMeans(n_clusters=n_clusters, max_iter=2, n_init=10, random_state=42)),
         ]
     )
-
     # Fit the pipeline
     pipeline.fit(sister_mmsis)
 
@@ -402,7 +450,7 @@ def get_same_vessels_journey(journey_df):
     return journey_df
 
 
-def stop_length_threshold(sister_mmsis, mmsi, threshold=30):
+def stop_length_threshold(sister_mmsis, mmsi, threshold=70):
     mmsi = mmsi
     lenght_mmsi = (
         sister_mmsis
@@ -421,8 +469,11 @@ def stop_length_threshold(sister_mmsis, mmsi, threshold=30):
         return True
         #st.stop()
     #st.write(f"Vessel Length is {lenght_mmsi}, that is greater than 30 meters, showing data")
-    print(f"Vessel Length is {lenght_mmsi}, that is greater than 30 meters, showing data")
+    print(f"Vessel Length is {lenght_mmsi}, that is greater than {threshold} meters, showing data")
     return False
+
+
+
 
 if submit:
     # get the imo first
@@ -432,18 +483,28 @@ if submit:
     elif imo_mmsi_name == "MMSI":
         (corresponding_imo_code, sister_mmsis) = get_merged_list_sister_mmsis(mmsi)
     elif imo_mmsi_name == "Name":
-        st.write("Name is not implemented yet")
         st.stop()
+        # FIX THIS
+        names_mmiss= get_names_mmsis(imo_mmsi_name)
+        chosen_name = names_mmiss.head(1)["name"].values[0]
+        mmsi = names_mmiss.head(1)["mmsi"].values[0]
+        (corresponding_imo_code, sister_mmsis) = get_merged_list_sister_mmsis(mmsi)
+
+        # st.write("Name is not implemented yet")
+        # st.stop()
     # lentgh threshold
     if stop_length_threshold(sister_mmsis, mmsi):
-        st.write("Vessel Length is less than 30 meters, not showing any data")
+        st.write("Vessel Length is less than chosen threshold, not showing any data")
         st.stop()
     sister_mmsis = (
         sister_mmsis
-        .query("s_staticData_dimensions_length >= 30")
+        .query("s_staticData_dimensions_length.notnull()")
+        .query("s_staticData_dimensions_length >= 50") # 
     )
+    st.write(sister_mmsis)
     sister_mmsi_list = sister_mmsis["mmsi"].tolist()
     sister_mmsis = get_same_vessels(sister_mmsis)
+
 
 
         # i would like to grouo by mergedlist_cluster and display the df for each cluster separately in a column

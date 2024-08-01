@@ -11,3 +11,7 @@ __pycache__/main.cpython-39.pyc
 tmp*
 data/*
 data
+*.csv
+main.py
+*.pdf
+*.json
