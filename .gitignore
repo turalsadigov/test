@@ -3,8 +3,7 @@ access.sh
 old_requirements.txt
 magicport_database_access.pem
 .env
-test.py
-test.pem
+test*
 __pycache__/*
 __pycache__/main.cpython-39.pyc
 .DS_Store

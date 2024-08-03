@@ -12,6 +12,7 @@ from sklearn.preprocessing import StandardScaler, OneHotEncoder
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 from sklearn.cluster import KMeans
+from sklearn.cluster import DBSCAN
 from sklearn.impute import SimpleImputer
 from sklearn.base import BaseEstimator, TransformerMixin
 import numpy as np
@@ -68,6 +69,31 @@ def angle_between_vectors(u, v):
     angle_deg = np.degrees(angle_rad)
     
     return angle_deg
+
+def are_vectors_close(u, v, threshold=0.15):
+    # rel error in x xoord
+    if max(abs(u[0]), abs(v[0])) != 0:
+        x_rel_error = abs(u[0] - v[0]) / max(abs(u[0]), abs(v[0]))
+    else:
+        x_rel_error = 0
+    print("x-rel ERROR: ", x_rel_error)
+    if x_rel_error < 0.05:
+        return True
+
+    if max(abs(u[1]), abs(v[1])) != 0:
+        y_rel_error = abs(u[1] - v[1]) / max(abs(u[1]), abs(v[1]))
+    else:
+        y_rel_error = 0
+    print("y-rel ERROR: ", y_rel_error)
+    combined_error = np.sqrt(x_rel_error ** 2 + y_rel_error ** 2)
+    print("comb ERROR: ", combined_error)
+    if combined_error > threshold:
+        return False
+
+    return True
+
+
+
 
 
 
@@ -222,15 +248,17 @@ def get_latest_mmsi(imo):
     if response.status_code != 200:
         print("Error:", response.status_code, response.text)
         return None
+    pd.DataFrame(response.json()).rename(columns={"s_staticData_mmsi": "mmsi"}).query("s_lastPositionUpdate_timestamp.notnull()").query("s_staticData_dimensions_length >= 70")
+
     mmsi = (
         pd.DataFrame(response.json())
         .rename(columns={"s_staticData_mmsi": "mmsi"})
         .query("s_lastPositionUpdate_timestamp.notnull()")
         .query("s_staticData_dimensions_length >= 70")
-        .sort_values(by="s_lastPositionUpdate_timestamp", ascending=False)
-        .head(1)
-        .iloc[0]['mmsi']
     )
+    if mmsi.empty:
+        return None
+    mmsi = mmsi.sort_values(by="s_lastPositionUpdate_timestamp", ascending=False).head(1)["mmsi"].values[0]
     return mmsi
 
 def get_names_mmsis(name):
@@ -316,17 +344,26 @@ def get_same_vessels(sister_mmsis):
         return sister_mmsis
 
     if sister_mmsis.shape[0] == 2:
+        sister_mmsis = sister_mmsis.sort_values(
+                by=["s_lastPositionUpdate_timestamp"],
+                ascending=[False],
+            )
         small_sister_mmsis = sister_mmsis[['s_staticData_dimensions_length', 's_staticData_dimensions_width']]
         if not small_sister_mmsis.isnull().values.any():
             u = small_sister_mmsis.loc[0, ['s_staticData_dimensions_length', 's_staticData_dimensions_width']].to_numpy()
             v = small_sister_mmsis.loc[1, ['s_staticData_dimensions_length', 's_staticData_dimensions_width']].to_numpy()
-            angle = angle_between_vectors(u, v)
-            if angle < 1:
+            # angle = angle_between_vectors(u, v)
+            # print(angle)
+            # if angle < 1:
+            #     sister_mmsis["mergedlist_cluster"] = 0
+            # else:
+            #     sister_mmsis.loc[0, "mergedlist_cluster"] = 0
+            #     sister_mmsis.loc[1, "mergedlist_cluster"] = 1
+            if are_vectors_close(u, v):
                 sister_mmsis["mergedlist_cluster"] = 0
-            sister_mmsis = sister_mmsis.sort_values(
-                by=["s_lastPositionUpdate_timestamp"],
-                ascending=[False],
-            )
+            else:
+                sister_mmsis.loc[0, "mergedlist_cluster"] = 0
+                sister_mmsis.loc[1, "mergedlist_cluster"] = 1
             return sister_mmsis
 
     numeric_features = [
@@ -386,6 +423,59 @@ def get_same_vessels(sister_mmsis):
     )
     return sister_mmsis
 
+# check this later
+def get_same_vessels_dbscan(sister_mmsis):
+    
+        if sister_mmsis.empty:
+            return sister_mmsis
+        
+        numeric_features = [
+            "s_staticData_dimensions_length",
+            "s_staticData_dimensions_width",
+        ]
+        numeric_transformer = Pipeline(
+            steps=[
+                ("imputer", SimpleImputer(strategy="median")),
+                ("scaler", StandardScaler()),
+            ]
+        )
+    
+        categorical_features = ["s_staticData_shipType"]
+        categorical_transformer = Pipeline(
+            steps=[
+                ("imputer", SimpleImputer(strategy="most_frequent")),
+                ("onehot", OneHotEncoder(handle_unknown="ignore")),
+            ]
+        )
+    
+        preprocessor = ColumnTransformer(
+            transformers=[
+                ("num", numeric_transformer, numeric_features),
+                ("cat", categorical_transformer, categorical_features),
+            ]
+        )
+        st.write(sister_mmsis.shape[0])
+
+        # Create a clustering pipeline
+        pipeline = Pipeline(
+            steps=[
+                ("preprocessor", preprocessor),
+                ("cluster", DBSCAN(eps=0.00001, min_samples=2)),
+            ]
+        )
+        # Fit the pipeline
+        #pipeline.fit(sister_mmsis)
+        sister_mmsis["mergedlist_cluster"] = pipeline.fit_predict(sister_mmsis)
+
+        # Predict clusters
+        #sister_mmsis["mergedlist_cluster"] = pipeline.predict(sister_mmsis)
+        # order them by cluster and then by lastPositionUpdate_timestamp desc
+        sister_mmsis = sister_mmsis.sort_values(
+            by=["mergedlist_cluster", "s_lastPositionUpdate_timestamp"],
+            ascending=[True, False],
+        )
+        # Predict clusters
+        return sister_mmsis
 
 def get_same_vessels_journey(journey_df):
     if journey_df.empty:
@@ -473,12 +563,13 @@ def stop_length_threshold(sister_mmsis, mmsi, threshold=70):
     return False
 
 
-
-
 if submit:
     # get the imo first
     if imo_mmsi_name == "IMO":
         mmsi = get_latest_mmsi(imo)
+        if mmsi is None:
+            st.write("Vessel Length is less than chosen threshold for all potential MMSIs, not showing any data")
+            st.stop()
         (corresponding_imo_code, sister_mmsis) = get_merged_list_sister_mmsis(mmsi, imo_given=True)
     elif imo_mmsi_name == "MMSI":
         (corresponding_imo_code, sister_mmsis) = get_merged_list_sister_mmsis(mmsi)
@@ -504,7 +595,7 @@ if submit:
     st.write(sister_mmsis)
     sister_mmsi_list = sister_mmsis["mmsi"].tolist()
     sister_mmsis = get_same_vessels(sister_mmsis)
-
+    #sister_mmsis = get_same_vessels_dbscan(sister_mmsis)
 
 
         # i would like to grouo by mergedlist_cluster and display the df for each cluster separately in a column
