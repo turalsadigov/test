@@ -433,7 +433,10 @@ def compare_two_length_width(sister_mmsis):
             sister_mmsis.loc[1, "mergedlist_cluster"] = 1
         return sister_mmsis
     return sister_mmsis
-#sister_mmsis = pd.read_csv("sister_mmsis.csv")
+
+
+
+
 # compare_two_length_width(sister_mmsis.head(2).reset_index(drop=True))
 # compare_two_length_width(sister_mmsis.tail(2).reset_index(drop=True))
 # compare_two_length_width(sister_mmsis.iloc[[0, 2]].reset_index(drop=True))
@@ -484,6 +487,38 @@ def compare_three_length_width(sister_mmsis):
 
 #compare_three_length_width(sister_mmsis)
 
+#sister_mmsis = pd.read_csv("sister_mmsis.csv")
+
+def compare_four_length_width(sister_mmsis):
+    # compare the length and width of the vessels pairwise among four rows
+    if sister_mmsis.empty:
+        return sister_mmsis
+    if sister_mmsis.shape[0] != 4:
+        return sister_mmsis
+    sister_mmsis = sister_mmsis.sort_values(
+            by=["s_lastPositionUpdate_timestamp"],
+            ascending=[False],
+        )   
+    small_sister_mmsis = sister_mmsis[['mmsi',"s_lastPositionUpdate_timestamp", 's_staticData_dimensions_length', 's_staticData_dimensions_width']]
+    # select the first two rows
+    first_two = small_sister_mmsis.iloc[[0, 1]].reset_index(drop=True)
+    # select the last two rows
+    second_two = small_sister_mmsis.iloc[[2, 3]].reset_index(drop=True)
+    mmsi_cluster_first_two = (
+        compare_two_length_width(first_two)
+        .filter(["mmsi", "mergedlist_cluster"])
+    )
+    mmsi_cluster_second_two = (
+        compare_two_length_width(second_two)
+        .filter(["mmsi", "mergedlist_cluster"])
+    )
+    # Perform inner join on mmsi
+    combined = pd.concat([mmsi_cluster_first_two, mmsi_cluster_second_two]).reset_index(drop=True)
+    # check to see if two columns are the same
+    if combined["mergedlist_cluster"].nunique() == 1:
+        return sister_mmsis.merge(combined, on="mmsi", how="left")
+    return sister_mmsis
+
 
 def get_same_vessels(sister_mmsis):
 
@@ -496,6 +531,8 @@ def get_same_vessels(sister_mmsis):
     if sister_mmsis.shape[0] == 3:
         return compare_three_length_width(sister_mmsis)
     
+    if sister_mmsis.shape[0] == 4:
+        return compare_four_length_width(sister_mmsis)
 
     numeric_features = [
         "s_staticData_dimensions_length",
